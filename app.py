@@ -20,7 +20,182 @@ REQUIRED_COLUMNS = [
     "Reference",
 ]
 
-st.set_page_config(page_title=APP_TITLE, page_icon="📡", layout="wide")
+CUSTOM_CSS = """
+<style>
+    :root {
+        --ink: #172b4d;
+        --muted: #64748b;
+        --line: #e5eaf2;
+        --surface: #ffffff;
+        --canvas: #f5f7fb;
+        --brand: #1769e0;
+        --brand-dark: #104ca8;
+        --mint: #13a887;
+    }
+
+    .stApp {
+        background:
+            radial-gradient(ellipse at 8% 0%, rgba(23, 105, 224, .075), transparent 32rem),
+            var(--canvas);
+        color: var(--ink);
+    }
+
+    .block-container {
+        max-width: 1440px;
+        padding-top: 2.25rem;
+        padding-bottom: 3rem;
+    }
+
+    h1, h2, h3, h4 {
+        color: var(--ink);
+        letter-spacing: -0.035em;
+    }
+
+    h2 {
+        margin-top: .25rem;
+    }
+
+    [data-testid="stSidebar"] {
+        background: #fff;
+        border-right: 1px solid var(--line);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: var(--muted);
+    }
+
+    .app-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 1.8rem 2rem;
+        margin: 0 0 1.5rem;
+        border: 1px solid rgba(255, 255, 255, .16);
+        border-radius: 22px;
+        background: linear-gradient(118deg, #102b55 0%, #1769e0 67%, #3988ef 100%);
+        box-shadow: 0 14px 35px rgba(31, 75, 132, .17);
+        color: white;
+    }
+
+    .app-hero::after {
+        position: absolute;
+        content: "";
+        width: 250px;
+        height: 250px;
+        right: -55px;
+        top: -135px;
+        border: 1px solid rgba(255,255,255,.15);
+        border-radius: 50%;
+        box-shadow: 0 0 0 28px rgba(255,255,255,.04), 0 0 0 58px rgba(255,255,255,.035);
+    }
+
+    .app-hero .eyebrow {
+        margin: 0 0 .4rem;
+        color: #cfe1ff;
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .app-hero h1 {
+        margin: 0;
+        color: #fff;
+        font-size: clamp(1.8rem, 3vw, 2.45rem);
+        line-height: 1.15;
+        letter-spacing: -.045em;
+    }
+
+    .app-hero p {
+        position: relative;
+        z-index: 1;
+        max-width: 720px;
+        margin: .7rem 0 0;
+        color: #e2edff;
+        font-size: .98rem;
+    }
+
+    [data-testid="stMetric"] {
+        min-height: 118px;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: 0 3px 12px rgba(20, 43, 77, .035);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 600;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: var(--ink);
+        font-size: 1.8rem;
+        font-weight: 700;
+        letter-spacing: -.035em;
+    }
+
+    [data-testid="stDataFrame"] {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: white;
+    }
+
+    .stButton > button, .stDownloadButton > button {
+        min-height: 2.7rem;
+        border-radius: 10px;
+        font-weight: 650;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .stButton > button[kind="primary"] {
+        border: 0;
+        background: linear-gradient(110deg, var(--brand), #3988ef);
+        box-shadow: 0 5px 13px rgba(23, 105, 224, .2);
+    }
+
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(23, 65, 120, .12);
+    }
+
+    [data-testid="stAlert"] {
+        border-radius: 12px;
+    }
+
+    [data-testid="stExpander"] {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+    }
+
+    hr {
+        border-color: var(--line);
+    }
+
+    @media (max-width: 700px) {
+        .block-container {
+            padding-top: 1.1rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .app-hero {
+            padding: 1.35rem 1.25rem;
+            border-radius: 16px;
+        }
+    }
+</style>
+"""
+
+
+def configure_page():
+    """Set Streamlit page metadata and apply the shared visual theme."""
+    st.set_page_config(page_title=APP_TITLE, page_icon="📡", layout="wide")
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -225,65 +400,91 @@ def load_month(conn, month_key):
         conn, params=(month_key,)
     )
 
-st.title("📡 Network Device Monthly Snapshot")
-st.caption("Individual device reporting • 24/7 operating period • One CSV snapshot on the 1st of each month")
+def render_header():
+    """Render the page title and explain the availability assumption."""
+    st.markdown("""
+    <section class="app-hero">
+        <p class="eyebrow">Network operations · Monthly reporting</p>
+        <h1>Device availability</h1>
+        <p>Import a monthly network snapshot, review device downtime, and export a filtered report.</p>
+    </section>
+    """, unsafe_allow_html=True)
+    st.caption(
+        "One CSV snapshot per month · Continuous 24/7 operating period "
+        "· Import on the first day of the month"
+    )
+    st.info(
+        "**Availability assumption:** `Down (h.m)` is treated as downtime attributable "
+        "to the selected reporting month. Availability is calculated against every "
+        "minute in that calendar month (28, 29, 30 or 31 days). If this field is only "
+        "the duration of an outage still in progress at snapshot time, the percentage "
+        "is an estimate, not true monthly availability. Accurate monthly uptime requires "
+        "complete outage history or monthly downtime totals."
+    )
 
-st.info(
-    "**Availability assumption:** `Down (h.m)` is treated as downtime attributable to the selected reporting month. "
-    "Availability is calculated against every minute in that calendar month (28, 29, 30 or 31 days). "
-    "If this field is only the duration of an outage still in progress at snapshot time, the percentage is an estimate, "
-    "not true monthly availability. Accurate monthly uptime requires complete outage history or monthly downtime totals."
-)
 
-conn = get_connection()
+def render_import_preview(conn, preview_df, snapshot_date):
+    """Show the uploaded data preview and save it after date validation."""
+    st.subheader("Import preview")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Device records", f"{len(preview_df):,}")
+    c2.metric("Reported down", f"{int(preview_df['is_down'].sum()):,}")
+    c3.metric("Reported up / no downtime", f"{int((~preview_df['is_down']).sum()):,}")
 
-with st.sidebar:
-    st.header("Monthly CSV import")
-    uploaded = st.file_uploader("Upload the monitoring-system CSV", type=["csv", "txt"])
-    snapshot_date = st.date_input("Snapshot date (must be the 1st)", value=date.today().replace(day=1))
-    st.caption("Import one snapshot for each reporting month. A month can only be imported once in this prototype.")
+    preview = preview_df[
+        ["device_name", "Reference", "Type", "Down (h.m)", "down_minutes", "Last Up"]
+    ].rename(columns={"down_minutes": "Downtime (minutes)"})
+    st.dataframe(preview, use_container_width=True, hide_index=True)
 
-if uploaded is not None:
+    if snapshot_date.day != 1:
+        st.error("Choose the 1st day of the month before importing.")
+        return
+
+    if st.button(f"Save {snapshot_date.strftime('%B %Y')} snapshot", type="primary"):
+        saved, message = save_snapshot(conn, preview_df, snapshot_date)
+        (st.success if saved else st.error)(message)
+
+
+def render_import_section(conn):
+    """Render the sidebar uploader and handle an uploaded snapshot."""
+    with st.sidebar:
+        st.header("Import snapshot")
+        st.caption("Add one monitoring export for each reporting month.")
+        uploaded = st.file_uploader("Monitoring-system CSV", type=["csv", "txt"])
+        snapshot_date = st.date_input(
+            "Snapshot date",
+            value=date.today().replace(day=1),
+            help="Choose the first day of the reporting month.",
+        )
+        st.caption("Each month can be imported once.")
+
+    if uploaded is None:
+        return
+
     try:
         preview_df = prepare_data(uploaded.getvalue())
-        st.subheader("Import preview")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Device records", f"{len(preview_df):,}")
-        c2.metric("Reported down", f"{int(preview_df['is_down'].sum()):,}")
-        c3.metric("Reported up / no downtime", f"{int((~preview_df['is_down']).sum()):,}")
-        st.dataframe(
-            preview_df[["device_name", "Reference", "Type", "Down (h.m)", "down_minutes", "Last Up"]]
-            .rename(columns={"down_minutes": "Downtime (minutes)"}),
-            use_container_width=True, hide_index=True
-        )
-        if snapshot_date.day != 1:
-            st.error("Choose the 1st day of the month before importing.")
-        else:
-            if st.button(f"Save {snapshot_date.strftime('%B %Y')} snapshot", type="primary"):
-                ok, message = save_snapshot(conn, preview_df, snapshot_date)
-                (st.success if ok else st.error)(message)
+        render_import_preview(conn, preview_df, snapshot_date)
     except Exception as exc:
         st.error(f"Could not read this file: {exc}")
 
-months = load_months(conn)
-st.divider()
-st.subheader("Monthly management report")
 
-if not months:
-    st.info("No monthly snapshots have been saved yet. Upload your first CSV using the sidebar.")
-else:
-    selected_month = st.selectbox("Reporting month", months)
-    report = load_month(conn, selected_month)
-    minutes_in_month = month_minutes(selected_month)
-    hours_in_month = minutes_in_month // 60
+def build_monthly_report(conn, month_key):
+    """Load a month's saved rows and derive availability fields."""
+    report = load_month(conn, month_key)
+    minutes_in_month = month_minutes(month_key)
     report["availability_pct"] = report["down_minutes"].apply(
         lambda value: calculate_availability(value, minutes_in_month)
     )
     report["downtime_exceeds_month"] = report["down_minutes"] > minutes_in_month
+    return report, minutes_in_month
 
+
+def render_report_metrics(report, month_key, minutes_in_month):
+    """Show the four report totals and the selected month's operating window."""
     total = len(report)
     down_count = int(report["is_down"].sum())
     average_availability = report["availability_pct"].mean() if total else 0.0
+
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Devices in snapshot", f"{total:,}")
     c2.metric("Reported down", f"{down_count:,}")
@@ -291,7 +492,7 @@ else:
     c4.metric("Total reported downtime", format_minutes(report["down_minutes"].sum()))
 
     st.caption(
-        f"{selected_month} has {hours_in_month:,} operating hours "
+        f"{month_key} has {minutes_in_month // 60:,} operating hours "
         f"({minutes_in_month:,} minutes), assuming continuous 24/7 availability."
     )
     if report["downtime_exceeds_month"].any():
@@ -299,113 +500,160 @@ else:
             "One or more devices have downtime greater than the selected month's duration. "
             "Their availability is capped at 0.00%; check the source values."
         )
+    return total
 
-    st.markdown("#### Device availability")
-    filter_col, sort_col = st.columns([2, 2])
-    with filter_col:
-        status_filter = st.radio(
-            "Show devices",
-            ["All devices", "Reported down only", "Down = 0 only"],
-            horizontal=True
-        )
-    with sort_col:
-        sort_order = st.selectbox(
-            "Sort availability",
-            ["Lowest availability first", "Highest availability first", "Device name"]
-        )
 
-    search = st.text_input("Search by device, reference, type or description")
+def filter_report(report, status_filter, sort_order, search):
+    """Apply the report's status, search, and sort controls."""
     view = report.copy()
     if status_filter == "Reported down only":
         view = view[view["is_down"] == 1]
     elif status_filter == "Down = 0 only":
         view = view[view["down_minutes"] == 0]
 
-    if search.strip():
-        q = search.strip().lower()
-        mask = (
-            view["device_name"].fillna("").str.lower().str.contains(q, regex=False)
-            | view["reference"].fillna("").str.lower().str.contains(q, regex=False)
-            | view["device_type"].fillna("").str.lower().str.contains(q, regex=False)
-            | view["description"].fillna("").str.lower().str.contains(q, regex=False)
+    query = search.strip().lower()
+    if query:
+        matches_query = (
+            view["device_name"].fillna("").str.lower().str.contains(query, regex=False)
+            | view["reference"].fillna("").str.lower().str.contains(query, regex=False)
+            | view["device_type"].fillna("").str.lower().str.contains(query, regex=False)
+            | view["description"].fillna("").str.lower().str.contains(query, regex=False)
         )
-        view = view[mask]
+        view = view[matches_query]
 
     if sort_order == "Lowest availability first":
-        view = view.sort_values("availability_pct", ascending=True)
-    elif sort_order == "Highest availability first":
-        view = view.sort_values("availability_pct", ascending=False)
-    else:
-        view = view.sort_values("device_name", ascending=True)
+        return view.sort_values("availability_pct", ascending=True)
+    if sort_order == "Highest availability first":
+        return view.sort_values("availability_pct", ascending=False)
+    return view.sort_values("device_name", ascending=True)
 
-    display = view[[
-        "device_name", "reference", "device_type", "device_class",
-        "last_up", "down_hm", "down_minutes", "availability_pct", "is_down"
-    ]].copy()
-    display["Status"] = display["is_down"].map({1: "DOWN (reported)", 0: "No downtime reported"})
+
+def render_device_filters(report):
+    """Render the filter controls and return the filtered device rows."""
+    filter_col, sort_col = st.columns([2, 2])
+    with filter_col:
+        status_filter = st.radio(
+            "Show devices",
+            ["All devices", "Reported down only", "Down = 0 only"],
+            horizontal=True,
+        )
+    with sort_col:
+        sort_order = st.selectbox(
+            "Sort availability",
+            [
+                "Lowest availability first",
+                "Highest availability first",
+                "Device name",
+            ],
+        )
+    search = st.text_input("Search by device, reference, type or description")
+    return filter_report(report, status_filter, sort_order, search)
+
+
+def format_device_table(view):
+    """Build the user-facing table while retaining source values for export."""
+    display = view[
+        [
+            "device_name",
+            "reference",
+            "device_type",
+            "device_class",
+            "last_up",
+            "down_hm",
+            "down_minutes",
+            "availability_pct",
+            "is_down",
+        ]
+    ].copy()
+    display["Status"] = display["is_down"].map(
+        {1: "DOWN (reported)", 0: "No downtime reported"}
+    )
     display["Downtime"] = display["down_minutes"].apply(format_minutes)
-    display["Availability"] = display["availability_pct"].map(lambda value: f"{value:.2f}%")
-    display = display.rename(columns={
-        "device_name": "Device",
-        "reference": "Reference",
-        "device_type": "Type",
-        "device_class": "Class",
-        "last_up": "Last Up",
-        "down_hm": "Source Down (h.m)"
-    }).drop(columns=["down_minutes", "availability_pct", "is_down"])
-
-    st.dataframe(
-        display[["Device", "Reference", "Type", "Source Down (h.m)",
-                 "Downtime", "Availability", "Status", "Last Up", "Class"]],
-        use_container_width=True,
-        hide_index=True,
-        height=520
+    display["Availability"] = display["availability_pct"].map(
+        lambda value: f"{value:.2f}%"
     )
-    st.caption(
-        f"Showing {len(view):,} of {total:,} devices. "
-        "Devices with Down (h.m) = 0 receive 100.00% availability."
-    )
+    display = display.rename(
+        columns={
+            "device_name": "Device",
+            "reference": "Reference",
+            "device_type": "Type",
+            "device_class": "Class",
+            "last_up": "Last Up",
+            "down_hm": "Source Down (h.m)",
+        }
+    ).drop(columns=["down_minutes", "availability_pct", "is_down"])
+    return display[
+        [
+            "Device",
+            "Reference",
+            "Type",
+            "Source Down (h.m)",
+            "Downtime",
+            "Availability",
+            "Status",
+            "Last Up",
+            "Class",
+        ]
+    ]
 
-    show_details = st.checkbox("Show / hide expanded device information", value=False)
-    if show_details:
-        st.markdown("#### Expanded device information")
-        if view.empty:
-            st.info("No devices match the current filters.")
-        else:
-            for _, device in view.iterrows():
-                label = f"{device['device_name']} | {device['availability_pct']:.2f}% availability"
-                with st.expander(label, expanded=False):
-                    d1, d2, d3 = st.columns(3)
-                    d1.metric("Availability", f"{device['availability_pct']:.2f}%")
-                    d2.metric("Downtime", format_minutes(device["down_minutes"]))
-                    d3.metric("Monthly operating time", format_minutes(minutes_in_month))
-                    left, right = st.columns(2)
-                    with left:
-                        st.write("**Device reference:**", device["reference"] or "—")
-                        st.write("**Device type:**", device["device_type"] or "—")
-                        st.write("**Device class:**", device["device_class"] or "—")
-                    with right:
-                        st.write("**Last Up:**", device["last_up"] or "—")
-                        st.write("**Source Down (h.m):**", device["down_hm"] or "0.00")
-                        st.write("**Description:**", device["description"] or "—")
-                    st.write(
-                        "**Snapshot status:**",
-                        "DOWN (reported)" if int(device["is_down"]) else "No downtime reported"
-                    )
 
+def render_device_details(view, minutes_in_month):
+    """Show optional expanded information for each filtered device."""
+    if not st.checkbox("Show / hide expanded device information", value=False):
+        return
+
+    st.markdown("#### Expanded device information")
+    if view.empty:
+        st.info("No devices match the current filters.")
+        return
+
+    for _, device in view.iterrows():
+        label = (
+            f"{device['device_name']} | "
+            f"{device['availability_pct']:.2f}% availability"
+        )
+        with st.expander(label, expanded=False):
+            d1, d2, d3 = st.columns(3)
+            d1.metric("Availability", f"{device['availability_pct']:.2f}%")
+            d2.metric("Downtime", format_minutes(device["down_minutes"]))
+            d3.metric("Monthly operating time", format_minutes(minutes_in_month))
+
+            left, right = st.columns(2)
+            with left:
+                st.write("**Device reference:**", device["reference"] or "—")
+                st.write("**Device type:**", device["device_type"] or "—")
+                st.write("**Device class:**", device["device_class"] or "—")
+            with right:
+                st.write("**Last Up:**", device["last_up"] or "—")
+                st.write("**Source Down (h.m):**", device["down_hm"] or "0.00")
+                st.write("**Description:**", device["description"] or "—")
+            st.write(
+                "**Snapshot status:**",
+                "DOWN (reported)" if int(device["is_down"]) else "No downtime reported",
+            )
+
+
+def render_device_export(view, month_key):
+    """Download the filtered rows, including the original report fields."""
     export_view = view.copy()
     export_view["Monthly availability (%)"] = export_view["availability_pct"].round(2)
-    export_view["Monthly downtime (formatted)"] = export_view["down_minutes"].apply(format_minutes)
+    export_view["Monthly downtime (formatted)"] = export_view["down_minutes"].apply(
+        format_minutes
+    )
     csv_out = export_view.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         "Download filtered device report (CSV)",
         data=csv_out,
-        file_name=f"device_availability_{selected_month}.csv",
-        mime="text/csv"
+        file_name=f"device_availability_{month_key}.csv",
+        mime="text/csv",
     )
 
+
+def render_snapshot_history(conn):
+    """Display the month-by-month snapshot totals."""
     st.subheader("Snapshot history")
-    history = pd.read_sql_query("""
+    history = pd.read_sql_query(
+        """
         SELECT snapshot_month,
                COUNT(*) AS devices,
                SUM(is_down) AS reported_down,
@@ -414,33 +662,100 @@ else:
         FROM monthly_snapshots
         GROUP BY snapshot_month
         ORDER BY snapshot_month
-    """, conn)
-    if not history.empty:
-        history["ongoing_downtime"] = history["ongoing_downtime_minutes"].apply(format_minutes)
-        st.dataframe(
-            history[["snapshot_month", "devices", "reported_down", "no_downtime_reported", "ongoing_downtime"]]
-            .rename(columns={
-                "snapshot_month": "Month",
-                "devices": "Devices",
-                "reported_down": "Reported down",
-                "no_downtime_reported": "No downtime reported",
-                "ongoing_downtime": "Ongoing downtime total"
-            }),
-            use_container_width=True, hide_index=True
-        )
-        st.caption("Historical averages use the same downtime assumption described above; complete outage-event history is needed for verified monthly uptime.")
+        """,
+        conn,
+    )
+    if history.empty:
+        return
 
-st.divider()
-with st.expander("Calculation and data notes"):
-    st.markdown("""
-    - The source field `Down (h.m)` is interpreted as **hours.minutes**, not decimal hours. For example, `3.15` becomes 3 hours 15 minutes.
-    - A device is provisionally marked as down when the parsed downtime is greater than zero.
-    - The sample export supports this interpretation because several reported durations align with the elapsed time since `Last Up` and the export capture time.
-    - The CSV does not provide a complete event history. A device can go down and recover between monthly imports without that outage appearing in either snapshot.
-    - Monthly availability = `(minutes in month - downtime minutes) / minutes in month × 100`.
-    - A device with `Down (h.m) = 0` receives **100.00%** availability.
-    - Availability is capped between 0.00% and 100.00%.
-    - This is a true monthly figure only if `Down (h.m)` is the total downtime for that reporting month. If it is only the current ongoing outage duration, the result is an estimate.
-    - A single monthly snapshot cannot capture outages that started and recovered between imports. Accurate monthly availability requires complete outage events or monthly downtime totals.
-    - Confirm that `Reference` is a unique, stable device identifier and that the source downtime field has the meaning assumed above.
-    """)
+    history["ongoing_downtime"] = history["ongoing_downtime_minutes"].apply(
+        format_minutes
+    )
+    history_display = history[
+        [
+            "snapshot_month",
+            "devices",
+            "reported_down",
+            "no_downtime_reported",
+            "ongoing_downtime",
+        ]
+    ].rename(
+        columns={
+            "snapshot_month": "Month",
+            "devices": "Devices",
+            "reported_down": "Reported down",
+            "no_downtime_reported": "No downtime reported",
+            "ongoing_downtime": "Ongoing downtime total",
+        }
+    )
+    st.dataframe(history_display, use_container_width=True, hide_index=True)
+    st.caption(
+        "Historical averages use the same downtime assumption described above; "
+        "complete outage-event history is needed for verified monthly uptime."
+    )
+
+
+def render_monthly_report(conn):
+    """Render the report, filters, expanded device details, and exports."""
+    st.divider()
+    st.subheader("Monthly report")
+    months = load_months(conn)
+    if not months:
+        st.info(
+            "No monthly snapshots have been saved yet. "
+            "Upload your first CSV using the sidebar."
+        )
+        return
+
+    selected_month = st.selectbox("Reporting month", months)
+    report, minutes_in_month = build_monthly_report(conn, selected_month)
+    total = render_report_metrics(report, selected_month, minutes_in_month)
+
+    st.markdown("#### Device availability")
+    view = render_device_filters(report)
+    st.dataframe(
+        format_device_table(view),
+        use_container_width=True,
+        hide_index=True,
+        height=520,
+    )
+    st.caption(
+        f"Showing {len(view):,} of {total:,} devices. "
+        "Devices with Down (h.m) = 0 receive 100.00% availability."
+    )
+
+    render_device_details(view, minutes_in_month)
+    render_device_export(view, selected_month)
+    render_snapshot_history(conn)
+
+
+def render_calculation_notes():
+    """Explain the source-field assumptions and availability formula."""
+    st.divider()
+    with st.expander("Calculation and data notes"):
+        st.markdown("""
+        - The source field `Down (h.m)` is interpreted as **hours.minutes**, not decimal hours. For example, `3.15` becomes 3 hours 15 minutes.
+        - A device is provisionally marked as down when the parsed downtime is greater than zero.
+        - The sample export supports this interpretation because several reported durations align with the elapsed time since `Last Up` and the export capture time.
+        - The CSV does not provide a complete event history. A device can go down and recover between monthly imports without that outage appearing in either snapshot.
+        - Monthly availability = `(minutes in month - downtime minutes) / minutes in month × 100`.
+        - A device with `Down (h.m) = 0` receives **100.00%** availability.
+        - Availability is capped between 0.00% and 100.00%.
+        - This is a true monthly figure only if `Down (h.m)` is the total downtime for that reporting month. If it is only the current ongoing outage duration, the result is an estimate.
+        - A single monthly snapshot cannot capture outages that started and recovered between imports. Accurate monthly availability requires complete outage events or monthly downtime totals.
+        - Confirm that `Reference` is a unique, stable device identifier and that the source downtime field has the meaning assumed above.
+        """)
+
+
+def main():
+    """Compose the Streamlit app from its independent UI sections."""
+    configure_page()
+    render_header()
+    conn = get_connection()
+    render_import_section(conn)
+    render_monthly_report(conn)
+    render_calculation_notes()
+
+
+if __name__ == "__main__":
+    main()
