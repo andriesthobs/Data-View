@@ -1,15 +1,17 @@
 import calendar
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 APP_TITLE = "Network Device Monthly Snapshot"
 DB_PATH = "network_uptime_history.db"
+LOGO_PATH = Path(__file__).resolve().with_name("vodafone.png")
 
 REQUIRED_COLUMNS = [
     "Last Up",
@@ -249,6 +251,12 @@ def format_minutes(total):
     total = max(0, int(total or 0))
     return f"{total // 60:,}h {total % 60:02d}m"
 
+
+def reporting_month(snapshot_date):
+    """Return the previous calendar month represented by a first-day export."""
+    return snapshot_date.replace(day=1) - timedelta(days=1)
+
+
 def month_minutes(month_key):
     """Full 24/7 operating minutes in the selected calendar month."""
     year, month = map(int, month_key.split("-"))
@@ -357,7 +365,7 @@ def prepare_data(file_bytes):
 
 
 def save_snapshot(conn, df, snapshot_date):
-    month_key = snapshot_date.strftime("%Y-%m")
+    month_key = reporting_month(snapshot_date).strftime("%Y-%m")
     date_key = snapshot_date.isoformat()
     imported_at = datetime.now().isoformat(timespec="seconds")
 
@@ -402,16 +410,23 @@ def load_month(conn, month_key):
 
 def render_header():
     """Render the page title and explain the availability assumption."""
-    st.markdown("""
+    hero = """
     <section class="app-hero">
         <p class="eyebrow">Network operations · Monthly reporting</p>
         <h1>Device availability</h1>
         <p>Import a monthly network information, review device downtime, and export a filtered report.</p>
     </section>
-    """, unsafe_allow_html=True)
+    """
+    if LOGO_PATH.is_file():
+        logo_column, title_column = st.columns([1, 5])
+        with logo_column:
+            st.image(str(LOGO_PATH), width=112)
+        with title_column:
+            st.markdown(hero, unsafe_allow_html=True)
+    else:
+        st.markdown(hero, unsafe_allow_html=True)
     st.caption(
-        "One CSV  per month · Continuous 24/7 operating period "
-        "· Import on the first day of the month"
+        "Monthly CSV export on the 1st · Each export covers the previous calendar month"
     )
     st.info(
         "**Availability assumption:** `Down (h.m)` is treated as downtime attributable "
@@ -438,7 +453,8 @@ def render_import_preview(conn, preview_df, snapshot_date):
         st.error("Choose the 1st day of the month before importing.")
         return
 
-    if st.button(f"Save {snapshot_date.strftime('%B %Y')} information", type="primary"):
+    report_month = reporting_month(snapshot_date).strftime("%B %Y")
+    if st.button(f"Save {report_month} report", type="primary"):
         saved, message = save_snapshot(conn, preview_df, snapshot_date)
         (st.success if saved else st.error)(message)
 
@@ -447,14 +463,14 @@ def render_import_section(conn):
     """Render the sidebar uploader and handle an uploaded snapshot."""
     with st.sidebar:
         st.header("Import information")
-        st.caption("Add one monitoring export for each reporting month.")
+        st.caption("Export on the 1st to report the previous calendar month.")
         uploaded = st.file_uploader("Monitoring-system CSV", type=["csv", "txt"])
         snapshot_date = st.date_input(
-            "Snapshot date",
+            "Export date",
             value=date.today().replace(day=1),
-            help="Choose the first day of the reporting month.",
+            help="Choose the 1st. This export will be stored for the previous calendar month.",
         )
-        st.caption("Each month can be imported once.")
+        st.caption("Each reporting month can be imported once.")
 
     if uploaded is None:
         return
