@@ -438,7 +438,7 @@ def render_import_preview(conn, preview_df, snapshot_date):
         st.error("Choose the 1st day of the month before importing.")
         return
 
-    if st.button(f"Save {snapshot_date.strftime('%B %Y')} snapshot", type="primary"):
+    if st.button(f"Save {snapshot_date.strftime('%B %Y')} information", type="primary"):
         saved, message = save_snapshot(conn, preview_df, snapshot_date)
         (st.success if saved else st.error)(message)
 
@@ -700,7 +700,7 @@ def render_monthly_report(conn):
     months = load_months(conn)
     if not months:
         st.info(
-            "No monthly snapshots have been saved yet. "
+            "No monthly information have been saved yet. "
             "Upload your first CSV using the sidebar."
         )
         return
