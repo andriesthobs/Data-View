@@ -434,7 +434,8 @@ def render_import_preview(conn, preview_df, snapshot_date):
     preview = preview_df[
         ["device_name", "Reference", "Type", "Down (h.m)", "down_minutes", "Last Up"]
     ].rename(columns={"down_minutes": "Downtime (minutes)"})
-    st.dataframe(preview, use_container_width=True, hide_index=True)
+    with st.expander("Preview uploaded records", expanded=False):
+        st.dataframe(preview, use_container_width=True, hide_index=True)
 
     if snapshot_date.day != 1:
         st.error("Choose the 1st day of the month before importing.")
