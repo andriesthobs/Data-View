@@ -13,7 +13,7 @@ DB_PATH = "network_uptime_history.db"
 REQUIRED_COLUMNS = [
     "Last Up",
     "Down (h.m)",
-    "Reference and/or Alias - 8657",
+    "Reference and/or Alias",
     "Type",
     "Description",
     "Class",
@@ -91,10 +91,10 @@ def prepare_data(file_bytes):
 
     # Prefer Reference as stable key; fall back to the export's alias/name column.
     df["device_key"] = df["Reference"].apply(clean_text)
-    fallback = df["Reference and/or Alias - 8657"].apply(clean_text)
+    fallback = df["Reference and/or Alias"].apply(clean_text)
     df.loc[df["device_key"] == "", "device_key"] = fallback[df["device_key"] == ""]
 
-    df["device_name"] = df["Reference and/or Alias - 8657"].apply(clean_text)
+    df["device_name"] = df["Reference and/or Alias"].apply(clean_text)
     df.loc[df["device_name"] == "", "device_name"] = df["device_key"]
 
     df = df[df["device_key"] != ""].copy()
