@@ -406,20 +406,17 @@ def render_header():
     <section class="app-hero">
         <p class="eyebrow">Network operations · Monthly reporting</p>
         <h1>Device availability</h1>
-        <p>Import a monthly network snapshot, review device downtime, and export a filtered report.</p>
+        <p>Import a monthly network information, review device downtime, and export a filtered report.</p>
     </section>
     """, unsafe_allow_html=True)
     st.caption(
-        "One CSV snapshot per month · Continuous 24/7 operating period "
+        "One CSV  per month · Continuous 24/7 operating period "
         "· Import on the first day of the month"
     )
     st.info(
         "**Availability assumption:** `Down (h.m)` is treated as downtime attributable "
         "to the selected reporting month. Availability is calculated against every "
-        "minute in that calendar month (28, 29, 30 or 31 days). If this field is only "
-        "the duration of an outage still in progress at snapshot time, the percentage "
-        "is an estimate, not true monthly availability. Accurate monthly uptime requires "
-        "complete outage history or monthly downtime totals."
+        "minute in that calendar month (28, 29, 30 or 31 days)."
     )
 
 
@@ -449,7 +446,7 @@ def render_import_preview(conn, preview_df, snapshot_date):
 def render_import_section(conn):
     """Render the sidebar uploader and handle an uploaded snapshot."""
     with st.sidebar:
-        st.header("Import snapshot")
+        st.header("Import information")
         st.caption("Add one monitoring export for each reporting month.")
         uploaded = st.file_uploader("Monitoring-system CSV", type=["csv", "txt"])
         snapshot_date = st.date_input(
