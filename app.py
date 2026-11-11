@@ -13,7 +13,7 @@ DB_PATH = "network_uptime_history.db"
 REQUIRED_COLUMNS = [
     "Last Up",
     "Down (h.m)",
-    "Reference and/or Alias",
+    "Type",
     "Type",
     "Description",
     "Class",
@@ -79,28 +79,93 @@ def clean_text(value):
         return ""
     return str(value).strip()
 
+
 def prepare_data(file_bytes):
     df = pd.read_csv(BytesIO(file_bytes))
-    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+
+    # Clean column names: remove BOM and unwanted spaces
+    df.columns = [
+        str(col).replace("\ufeff", "").strip()
+        for col in df.columns
+    ]
+
+    # Find Reference and/or Alias, ignoring numeric suffix,
+    # spaces and capitalisation.
+    alias_column = None
+
+    for col in df.columns:
+        normalized = " ".join(str(col).lower().split())
+
+        if normalized.startswith("reference and/or alias"):
+            alias_column = col
+            break
+
+    if alias_column is None:
+        raise ValueError(
+            "Reference and/or Alias column not found. "
+            f"Columns detected: {df.columns.tolist()}"
+        )
+
+    # Rename detected column to a consistent internal name
+    df = df.rename(columns={
+        alias_column: "Reference and/or Alias"
+    })
+
+    # Validate other required columns
+    missing = [
+        col for col in REQUIRED_COLUMNS
+        if col not in df.columns
+    ]
+
     if missing:
-        raise ValueError("Missing required column(s): " + ", ".join(missing))
+        raise ValueError(
+            f"Missing required column(s): {missing}. "
+            f"Detected columns: {df.columns.tolist()}"
+        )
 
     df = df.copy()
-    df["down_minutes"] = df["Down (h.m)"].apply(parse_hm)
+
+    # Calculate downtime
+    df["down_minutes"] = (
+        df["Down (h.m)"].apply(parse_hm)
+    )
+
     df["is_down"] = df["down_minutes"] > 0
 
-    # Prefer Reference as stable key; fall back to the export's alias/name column.
-    df["device_key"] = df["Reference"].apply(clean_text)
-    fallback = df["Reference and/or Alias"].apply(clean_text)
-    df.loc[df["device_key"] == "", "device_key"] = fallback[df["device_key"] == ""]
+    # Device identification
+    df["device_key"] = (
+        df["Reference"].apply(clean_text)
+    )
 
-    df["device_name"] = df["Reference and/or Alias"].apply(clean_text)
-    df.loc[df["device_name"] == "", "device_name"] = df["device_key"]
+    fallback = (
+        df["Reference and/or Alias"].apply(clean_text)
+    )
 
+    df.loc[
+        df["device_key"] == "",
+        "device_key"
+    ] = fallback[df["device_key"] == ""]
+
+    df["device_name"] = (
+        df["Reference and/or Alias"].apply(clean_text)
+    )
+
+    df.loc[
+        df["device_name"] == "",
+        "device_name"
+    ] = df["device_key"]
+
+    # Remove records without an identifier
     df = df[df["device_key"] != ""].copy()
-    # If the export has duplicate references, retain the row with the greatest reported downtime.
-    df = df.sort_values("down_minutes").drop_duplicates("device_key", keep="last")
+
+    # Remove duplicate device references
+    df = (
+        df.sort_values("down_minutes")
+        .drop_duplicates("device_key", keep="last")
+    )
+
     return df
+
 
 def save_snapshot(conn, df, snapshot_date):
     month_key = snapshot_date.strftime("%Y-%m")
