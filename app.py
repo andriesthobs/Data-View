@@ -12,6 +12,7 @@ import streamlit as st
 APP_TITLE = "Network Device Monthly Snapshot"
 DB_PATH = "network_uptime_history.db"
 LOGO_PATH = Path(__file__).resolve().with_name("vodafone.png")
+REPORT_MONTH_WIDGET_KEY = "reporting_month_selector"
 
 REQUIRED_COLUMNS = [
     "Last Up",
@@ -364,17 +365,26 @@ def prepare_data(file_bytes):
     return df
 
 
-def save_snapshot(conn, df, snapshot_date):
+def count_month_records(conn, month_key):
+    """Return how many device rows are already saved for a report month."""
+    return conn.execute(
+        "SELECT COUNT(*) FROM monthly_snapshots WHERE snapshot_month = ?",
+        (month_key,),
+    ).fetchone()[0]
+
+
+def save_snapshot(conn, df, snapshot_date, replace_existing=False):
+    """Save a monthly snapshot, optionally replacing that month's existing rows."""
     month_key = reporting_month(snapshot_date).strftime("%Y-%m")
     date_key = snapshot_date.isoformat()
     imported_at = datetime.now().isoformat(timespec="seconds")
 
-    existing = conn.execute(
-        "SELECT COUNT(*) FROM monthly_snapshots WHERE snapshot_month = ?",
-        (month_key,)
-    ).fetchone()[0]
-    if existing:
-        return False, f"A snapshot for {month_key} is already stored ({existing:,} device records). No records were overwritten."
+    existing_count = count_month_records(conn, month_key)
+    if existing_count and not replace_existing:
+        return False, (
+            f"A snapshot for {month_key} is already stored "
+            f"({existing_count:,} device records). No records were overwritten."
+        )
 
     rows = []
     for _, r in df.iterrows():
@@ -387,15 +397,29 @@ def save_snapshot(conn, df, snapshot_date):
             int(r["down_minutes"]), int(bool(r["is_down"])),
             json.dumps(raw, ensure_ascii=False), imported_at
         ))
-    conn.executemany("""
-        INSERT INTO monthly_snapshots (
-            snapshot_month, snapshot_date, device_key, device_name, reference,
-            device_type, description, device_class, last_up, down_hm,
-            down_minutes, is_down, raw_json, imported_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, rows)
-    conn.commit()
-    return True, f"Saved {len(rows):,} device records for {month_key}."
+    try:
+        if existing_count:
+            conn.execute(
+                "DELETE FROM monthly_snapshots WHERE snapshot_month = ?",
+                (month_key,),
+            )
+        conn.executemany(
+            """
+            INSERT INTO monthly_snapshots (
+                snapshot_month, snapshot_date, device_key, device_name, reference,
+                device_type, description, device_class, last_up, down_hm,
+                down_minutes, is_down, raw_json, imported_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    action = "Updated" if existing_count else "Saved"
+    return True, f"{action} {len(rows):,} device records for {month_key}."
 
 def load_months(conn):
     return [r[0] for r in conn.execute(
@@ -453,9 +477,35 @@ def render_import_preview(conn, preview_df, snapshot_date):
         st.error("Choose the 1st day of the month before importing.")
         return
 
-    report_month = reporting_month(snapshot_date).strftime("%B %Y")
-    if st.button(f"Save {report_month} report", type="primary"):
+    report_date = reporting_month(snapshot_date)
+    report_month = report_date.strftime("%B %Y")
+    month_key = report_date.strftime("%Y-%m")
+    existing_count = count_month_records(conn, month_key)
+
+    if existing_count:
+        st.warning(
+            f"{report_month} already has {existing_count:,} saved device records. "
+            "Replacing this snapshot will replace all records for that month."
+        )
+        if st.button(
+            f"Replace {report_month} snapshot",
+            type="primary",
+            key=f"replace_snapshot_{month_key}",
+        ):
+            saved, message = save_snapshot(
+                conn, preview_df, snapshot_date, replace_existing=True
+            )
+            if saved:
+                st.session_state[REPORT_MONTH_WIDGET_KEY] = month_key
+            (st.success if saved else st.error)(message)
+    elif st.button(
+        f"Save {report_month} report",
+        type="primary",
+        key=f"save_snapshot_{month_key}",
+    ):
         saved, message = save_snapshot(conn, preview_df, snapshot_date)
+        if saved:
+            st.session_state[REPORT_MONTH_WIDGET_KEY] = month_key
         (st.success if saved else st.error)(message)
 
 
@@ -470,7 +520,10 @@ def render_import_section(conn):
             value=date.today().replace(day=1),
             help="Choose the 1st. This export will be stored for the previous calendar month.",
         )
-        st.caption("Each reporting month can be imported once.")
+        st.caption(
+            "One snapshot is stored per month. Re-importing a month requires "
+            "a deliberate replacement."
+        )
 
     if uploaded is None:
         return
@@ -721,7 +774,13 @@ def render_monthly_report(conn):
         )
         return
 
-    selected_month = st.selectbox("Reporting month", months)
+    if st.session_state.get(REPORT_MONTH_WIDGET_KEY) not in months:
+        st.session_state[REPORT_MONTH_WIDGET_KEY] = months[0]
+    selected_month = st.selectbox(
+        "Reporting month",
+        months,
+        key=REPORT_MONTH_WIDGET_KEY,
+    )
     report, minutes_in_month = build_monthly_report(conn, selected_month)
     total = render_report_metrics(report, selected_month, minutes_in_month)
 
