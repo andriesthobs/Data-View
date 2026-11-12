@@ -500,7 +500,7 @@ def render_report_metrics(report, month_key, minutes_in_month):
     average_availability = report["availability_pct"].mean() if total else 0.0
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Devices in snapshot", f"{total:,}")
+    c1.metric("Devices in Network", f"{total:,}")
     c2.metric("Reported down", f"{down_count:,}")
     c3.metric("Average device availability", f"{average_availability:.2f}%")
     c4.metric("Total reported downtime", format_minutes(report["down_minutes"].sum()))
